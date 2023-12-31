@@ -1,0 +1,335 @@
+---
+title: "Section 5.5.2 - River Water Level"
+author: "Marouane IL IDRISSI"
+date: "03/12/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.path="figures/")
+library(sensitivity)
+library(triangle)
+library(VineCopula)
+library(evd)
+library(interpretability)
+library(RColorBrewer)
+
+coul <- brewer.pal(6, "Dark2") 
+coul[3]="cornflowerblue"
+```
+
+```{r}
+load(file="results/pertRes_RWL.RData")
+load(file="surrogate/pertSurrogate_RWL.RData")
+```
+
+```{r riverPerts, fig.width=10, fig.height=5.5}
+par(mar=c(4,4,1.5,1))
+
+layout(matrix(c(1,1,2,2,3,3,
+                1,1,2,2,3,3,
+                1,1,2,2,3,3,
+                4,4,4,4,4,4), nrow=4, ncol=6, byrow=T))
+
+plot(Q.pert, 
+     main=expression("Perturbation of"~Q),
+     cex.main=1.5,
+     cex.lab=1.5)
+abline(h=c(500,3000),
+       lty=2,
+       col="cornflowerblue")
+polygon(x=c(0,1,1,0),
+        y=c(500,500,3000,3000),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.2),
+        border=F)
+
+plot(L.pert,
+     main=expression("Perturbation of"~L),
+     cex.main=1.5,
+     cex.lab=1.5)
+abline(h=c(4990,5010),
+       lty=2,
+       col="cornflowerblue")
+polygon(x=c(0,1,1,0),
+        y=c(4990,4990,5010,5010),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.2),
+        border=F)
+
+plot(Zm.pert, 
+     main=expression("Perturbation of"~Z[m]),
+     cex.main=1.5,
+     cex.lab=1.5)
+abline(h=c(54,56),
+       lty=2,
+       col="cornflowerblue")
+polygon(x=c(0,1,1,0),
+        y=c(54,54,56,56),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.2),
+        border=F)
+
+plot.new()
+legend("top",
+           legend=c("Wasserstein Projection", "Initial Quantile Function", "Interpolation points", "Initial Application Domain"),
+           lty=c(5,1, NA, 1),
+           col=c(2,1,1,rgb(0.3921569,0.5843137,0.9294118,0.2)),
+           pch=c(NA, NA, 1,NA),
+           lwd=c(2,1,1, 8),
+       bg="white",
+       ncol=2,
+       cex=1.5)
+```
+
+```{r riverPertsDilat, fig.width=10, fig.height=6.5}
+par(mar=c(4,4,1.5,1))
+layout(matrix(c(1,1,1,2,2,2,
+                1,1,1,2,2,2,
+                1,1,1,2,2,2,
+                3,3,3,3,3,3), nrow=4, ncol=6, byrow=T))
+
+plot(res.pert.Ks[[1]], ylim=c(5,70),
+     main=expression("Narrowed application domain of"~K[s]~"("~theta~ "= -1 )"),
+     cex.main=1.5,
+     cex.lab=1.5)
+
+abline(h=c(15,55),
+       col="cornflowerblue",
+       lty=2)
+abline(h=c(21+2*1/3,48+1/3),
+       col=2,
+       lty=2)
+
+polygon(x=c(0,1,1,0),
+        y=c(15,15,55,55),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.2),
+        border=F)
+polygon(x=c(0,1,1,0),
+        y=c(21+2*1/3,21+2*1/3,48+1/3,48+1/3),
+        col=rgb(0.8745098,0.3254902,0.4196078,0.2),
+        border=F)
+
+plot(res.pert.Ks[[201]], ylim=c(5,70),
+     main=expression("Widened application domain of"~K[s]~"("~theta~ "= 1 )"),
+     cex.main=1.5,
+     cex.lab=1.5)
+
+abline(h=c(15,55),
+       col="cornflowerblue",
+       lty=2)
+abline(h=c(5,65),
+       col=2,
+       lty=2)
+polygon(x=c(0,1,1,0),
+        y=c(15,15,55,55),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.2),
+        border=F)
+polygon(x=c(0,1,1,0),
+        y=c(5,5,65,65),
+        col=rgb(0.8745098,0.3254902,0.4196078,0.2),
+        border=F)
+
+plot.new()
+legend("top",
+           legend=c("Wasserstein Projection", "Initial Quantile Function", "Interpolation points", "Initial Application Domain","Dilated Application Domain"),
+           lty=c(5,1, NA, 1,1),
+           col=c(2,1,1,rgb(0.3921569,0.5843137,0.9294118,0.2), rgb(0.8745098,0.3254902,0.4196078,0.2)),
+           pch=c(NA, NA, 1,NA,NA),
+           lwd=c(2,1,2,8,8),
+       bg="white",
+       ncol=2,
+       cex=1.5)
+```
+```{r}
+#Set-up
+#Baseline Shap
+load(file="../../Chapter3/RWL/results/allocations_RWL.RData")
+baseline.shap=colMeans(Shaps.RWL)
+
+#Non-perturbed stats
+source(file="../../useCases/riverWaterLevel/RWL_model.R")
+set.seed(12345)
+init.Y<-model.RWL(sim.RWL(1e6))
+init.stats<-c(mean(init.Y), var(init.Y), quantile(init.Y,c(0,0.025, 0.05, 0.95,0.975,1), type=1))
+```
+
+
+
+```{r shapRob, fig.width=10, fig.height=5}
+
+par(mar=c(4,4.5,1,1))
+
+layout(matrix(c(1,1,2,2,2,2,
+                1,1,2,2,2,2,
+                1,1,2,2,2,2), nrow=3, ncol=6, byrow=T))
+
+a=barplot(height=c(baseline.shap)+0.005,
+        names=rownames(baseline.shap),
+        col=coul,
+        ylim=c(0,0.59),
+        ylab="Initial Shapley Effects",
+        cex.names=1.5,
+        cex.lab=1.5,
+        xaxt="n",
+        border=F)
+ text(a, par("usr")[3], labels = c("Q","Ks","Zv","Zm","L","B"), srt = 60, adj = c(1.1,1.1), xpd = TRUE, cex=1.5) 
+
+
+plot(res.shap[,1], res.shap[,2], type='l', col=coul[1], ylim=c(-0.005,0.57), lwd=2,
+     ylab="Perturbed Shapley Effects",
+     xlab=expression(theta),
+     cex.lab=1.5)
+grid()
+lines(res.shap[,1], res.shap[,3], col=coul[2], lwd=2)
+lines(res.shap[,1], res.shap[,4], col=coul[3], lwd=2)
+lines(res.shap[,1], res.shap[,5], col=coul[4], lwd=2)
+lines(res.shap[,1], res.shap[,6], col=coul[5], lwd=2)
+lines(res.shap[,1], res.shap[,7], col=coul[6], lwd=2)
+```
+
+```{r statsRob, fig.width=10, fig.height=7}
+par(mar=c(4,4.5,2,0.1))
+layout(matrix(c(1,1,1,
+                1,1,1,
+                1,1,1,
+                2,2,2), nrow=4, ncol=3, byrow=T))
+plot(res.stats[,1], res.stats[,2], type='l',
+     ylim=c(49,62),
+     xlab=expression(theta),
+     ylab="River Water Level",
+     lwd=2.5,
+     col=coul[6],
+     main="",
+     cex.lab=1.5)
+grid()
+
+polygon(x=c(res.stats[,1], rev(res.stats[,1])),
+        y=c(res.stats[,2]+sqrt(res.stats[,3]),rev(res.stats[,2]-sqrt(res.stats[,3]))),
+        col=rgb(0.8745098,0.3254902,0.4196078,0.3),
+        border=NA)
+polygon(x=c(res.stats[,1], rev(res.stats[,1])),
+        y=c(res.stats[,2]-sqrt(res.stats[,3]),rev(res.stats[,5])),
+        col=rgb(0.1058824,0.6196078, 0.4666667,0.3),
+        border=NA)
+polygon(x=c(res.stats[,1], rev(res.stats[,1])),
+        y=c(res.stats[,8], rev(res.stats[,2]+sqrt(res.stats[,3]))),
+        col=rgb(0.1058824,0.6196078, 0.4666667,0.3),
+        border=NA)
+polygon(x=c(res.stats[,1], rev(res.stats[,1])),
+        y=c(res.stats[,5], rev(res.stats[,4])),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.3),
+        border=NA)
+polygon(x=c(res.stats[,1], rev(res.stats[,1])),
+        y=c(res.stats[,9], rev(res.stats[,8])),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.3),
+        border=NA)
+
+seq_dots=seq(-1.1,1.1,0.1)
+n_dots=length(seq_dots)
+abline(h=init.stats[1], col=rgb(0.5,0.5,0.5,0.6), lty=2, lwd=1)
+points(seq_dots, rep(init.stats[1], n_dots), col=rgb(0.5,0.5,0.5,1), pch=1, cex=1.5, lwd=2)
+
+abline(h=init.stats[1]+sqrt(init.stats[2]), col=2, lty=2, lwd=1)
+points(seq_dots, rep(init.stats[1]+sqrt(init.stats[2]), n_dots), col=2, pch=2, cex=1.3, lwd=2)
+
+abline(h=init.stats[1]-sqrt(init.stats[2]), col=2, lty=2, lwd=1)
+points(seq_dots, rep(init.stats[1]-sqrt(init.stats[2]), n_dots), col=2, pch=2, cex=1.3, lwd=2)
+
+abline(h=init.stats[5], col=coul[1], lty=2, lwd=1)
+points(seq_dots, rep(init.stats[5], n_dots), col=coul[1], pch=3, cex=1.3, lwd=2)
+
+abline(h=init.stats[7], col=coul[1], lty=2, lwd=1)
+points(seq_dots, rep(init.stats[7], n_dots), col=coul[1], pch=3, cex=1.3, lwd=2)
+
+abline(h=init.stats[3], col="cornflowerblue", lty=2, lwd=1)
+points(seq_dots, rep(init.stats[3], n_dots), col="cornflowerblue", pch=4, cex=1.3, lwd=2)
+
+abline(h=init.stats[8], col="cornflowerblue", lty=2, lwd=1)
+points(seq_dots, rep(init.stats[8], n_dots), col="cornflowerblue", pch=4, cex=1.3, lwd=2)
+
+plot.new()
+
+
+legend("top",
+       legend=c("Mean Value", "95% Coverage", "± std.", "Min/Max","Initial Mean Value", "± Initial std.", "Initial 95% coverage", "Initial Min/Max"),
+       lwd=c(2,8,8,8,2,2,2,2),
+       lty=c(1,1,1,1,2,2,2,2),
+       pch=c(NA,NA,NA,NA,1,2,3,4),
+       col=c(coul[6],rgb(0.1058824,0.6196078, 0.4666667,0.3),rgb(0.8745098,0.3254902,0.4196078,0.3),rgb(0.3921569,0.5843137,0.9294118,0.3),rgb(0.745098,0.745098,0.745098,0.65),2,coul[1],"cornflowerblue"),
+       ncol=4,
+       cex=1.5)
+
+```
+
+```{r statsRob_nn, fig.width=10, fig.height=7}
+par(mar=c(4,4.5,2,0.1))
+layout(matrix(c(1,1,1,
+                1,1,1,
+                1,1,1,
+                2,2,2), nrow=4, ncol=3, byrow=T))
+plot(res.stats.nn[,1], res.stats.nn[,2], type='l',
+     ylim=c(49,62),
+     xlab=expression(theta),
+     ylab="River Water Level (surrogate)",
+     lwd=2.5,
+     col=coul[6],
+     main="",
+     cex.lab=1.5)
+grid()
+
+polygon(x=c(res.stats.nn[,1], rev(res.stats.nn[,1])),
+        y=c(res.stats.nn[,2]+sqrt(res.stats.nn[,3]),rev(res.stats.nn[,2]-sqrt(res.stats.nn[,3]))),
+        col=rgb(0.8745098,0.3254902,0.4196078,0.3),
+        border=NA)
+polygon(x=c(res.stats.nn[,1], rev(res.stats.nn[,1])),
+        y=c(res.stats.nn[,2]-sqrt(res.stats.nn[,3]),rev(res.stats.nn[,5])),
+        col=rgb(0.1058824,0.6196078, 0.4666667,0.3),
+        border=NA)
+polygon(x=c(res.stats.nn[,1], rev(res.stats.nn[,1])),
+        y=c(res.stats.nn[,8], rev(res.stats.nn[,2]+sqrt(res.stats.nn[,3]))),
+        col=rgb(0.1058824,0.6196078, 0.4666667,0.3),
+        border=NA)
+polygon(x=c(res.stats.nn[,1], rev(res.stats.nn[,1])),
+        y=c(res.stats.nn[,5], rev(res.stats.nn[,4])),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.3),
+        border=NA)
+polygon(x=c(res.stats.nn[,1], rev(res.stats.nn[,1])),
+        y=c(res.stats.nn[,9], rev(res.stats.nn[,8])),
+        col=rgb(0.3921569,0.5843137,0.9294118,0.3),
+        border=NA)
+
+seq_dots=seq(-1.1,1.1,0.1)
+n_dots=length(seq_dots)
+abline(h=init.stats[1], col=rgb(0.5,0.5,0.5,0.6), lty=2, lwd=1)
+points(seq_dots, rep(init.stats[1], n_dots), col=rgb(0.5,0.5,0.5,1), pch=1, cex=1.5, lwd=2)
+
+abline(h=init.stats[1]+sqrt(init.stats[2]), col=2, lty=2, lwd=1)
+points(seq_dots, rep(init.stats[1]+sqrt(init.stats[2]), n_dots), col=2, pch=2, cex=1.3, lwd=2)
+
+abline(h=init.stats[1]-sqrt(init.stats[2]), col=2, lty=2, lwd=1)
+points(seq_dots, rep(init.stats[1]-sqrt(init.stats[2]), n_dots), col=2, pch=2, cex=1.3, lwd=2)
+
+abline(h=init.stats[5], col=coul[1], lty=2, lwd=1)
+points(seq_dots, rep(init.stats[5], n_dots), col=coul[1], pch=3, cex=1.3, lwd=2)
+
+abline(h=init.stats[7], col=coul[1], lty=2, lwd=1)
+points(seq_dots, rep(init.stats[7], n_dots), col=coul[1], pch=3, cex=1.3, lwd=2)
+
+abline(h=init.stats[3], col="cornflowerblue", lty=2, lwd=1)
+points(seq_dots, rep(init.stats[3], n_dots), col="cornflowerblue", pch=4, cex=1.3, lwd=2)
+
+abline(h=init.stats[8], col="cornflowerblue", lty=2, lwd=1)
+points(seq_dots, rep(init.stats[8], n_dots), col="cornflowerblue", pch=4, cex=1.3, lwd=2)
+
+plot.new()
+
+
+legend("top",
+       legend=c("Mean Value", "95% Coverage", "± std.", "Min/Max","Initial Mean Value", "± Initial std.", "Initial 95% coverage", "Initial Min/Max"),
+       lwd=c(2,8,8,8,2,2,2,2),
+       lty=c(1,1,1,1,2,2,2,2),
+       pch=c(NA,NA,NA,NA,1,2,3,4),
+       col=c(coul[6],rgb(0.1058824,0.6196078, 0.4666667,0.3),rgb(0.8745098,0.3254902,0.4196078,0.3),rgb(0.3921569,0.5843137,0.9294118,0.3),rgb(0.745098,0.745098,0.745098,0.65),2,coul[1],"cornflowerblue"),
+       ncol=4,
+       cex=1.5)
+
+```

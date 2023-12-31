@@ -1,0 +1,212 @@
+---
+title: "Section 5.5.1 - Acoustic Fire Extinguisher"
+author: "Marouane IL IDRISSI"
+date: "03/12/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.path="figures/")
+
+library(keras)
+library(RColorBrewer)
+library(precrec)
+library(ROCit)
+library(cvms)
+library(tibble)
+library(interpretability)
+library(lattice)
+library("colorspace")
+```
+
+
+```{r}
+# Loading the data
+
+load(file="../../useCases/acousticFireExtinguisher/data/AFE_data.RData")
+load(file="results/AFE_pertRes.RData")
+```
+
+```{r}
+#Data Prep
+y.pert=fire.rob$pred.pert[,-1]
+x.dist=fire.rob$dist.pert[,-1]
+pred.change=t(apply(y.pert, 1, function(x) x!=fire.rob$Y.init))
+
+#Colors
+
+coul <- brewer.pal(6, "Dark2") 
+
+coul[3]="cornflowerblue"
+
+#Perts
+minPert<-fire.rob$res.pert[[1]]
+midPert<-fire.rob$res.pert[[100]]
+maxPert<-fire.rob$res.pert[[201]]
+
+seq_pert=seq(0,1,0.001)
+
+minPert.Y<-interpretability:::evaluate.qcwProj(minPert, seq_pert)
+midPert.Y<-interpretability:::evaluate.qcwProj(midPert, seq_pert)
+maxPert.Y<-interpretability:::evaluate.qcwProj(maxPert, seq_pert)
+
+minPert.interpol.x<-sort(unique(as.numeric(minPert$intervals[,c(1,2)])))
+minPert.interpol.y<-sort(unique(as.numeric(minPert$intervals[,c(3,4)])))
+minPert.interpol.y<-(minPert.interpol.y-1)*((minPert$max.P-minPert$min.P)/2)+minPert$max.P
+
+midPert.interpol.x<-sort(unique(as.numeric(midPert$intervals[,c(1,2)])))
+midPert.interpol.y<-sort(unique(as.numeric(midPert$intervals[,c(3,4)])))
+midPert.interpol.y<-(midPert.interpol.y-1)*((midPert$max.P-midPert$min.P)/2)+midPert$max.P
+
+maxPert.interpol.x<-sort(unique(as.numeric(maxPert$intervals[,c(1,2)])))
+maxPert.interpol.y<-sort(unique(as.numeric(maxPert$intervals[,c(3,4)])))
+maxPert.interpol.y<-(maxPert.interpol.y-1)*((maxPert$max.P-maxPert$min.P)/2)+maxPert$max.P
+```
+
+```{r polyPertViz, fig.width=8, fig.height=4.5}
+par(mar=c(3.8,4,1,1))
+
+equiv=seq_pert<=0.6
+
+equiv_min=seq_pert<=0.65
+equiv_post=seq_pert>=0.94
+
+supPose_min=seq_pert>=0.8 & seq_pert<=0.94
+supPose_max=seq_pert>=0.65 & seq_pert<=0.8
+
+plot(seq_pert, quantile(fire.nn[,4], seq_pert, type=1), type='s', lwd=1,
+     xlab="Quantile level",
+     ylab="Airflow")
+grid()
+lines(seq_pert[!equiv], minPert.Y[!equiv], col=coul[1], lwd=2)
+lines(seq_pert[!equiv], maxPert.Y[!equiv], col=coul[2], lwd=2)
+lines(seq_pert[!equiv], midPert.Y[!equiv], col=coul[3], lwd=2)
+lines(seq_pert[equiv], minPert.Y[equiv], col=2, lwd=2)
+
+points(minPert.interpol.x, minPert.interpol.y, pch=1, lwd=2)
+points(maxPert.interpol.x, maxPert.interpol.y, pch=1, lwd=2)
+points(midPert.interpol.x, midPert.interpol.y, pch=1, lwd=2)
+
+legend("topleft",
+         col=c(1, coul[1:3]),
+         lty=rep(1,4),
+         lwd=c(1,2,2,2),
+         legend=c("Airflow Empirical Quantile Function",
+                  expression(theta~" = -1"),
+                  expression(theta~" = 1"),
+                  expression(theta~" = 0")),
+       cex=0.8,
+       bg="white")
+```
+
+
+```{r globRob, fig.width=8, fig.height=4.5}
+par(mar=c(5,4.5,1,1))
+layout(matrix(c(1,1,1,2,2,2,
+                1,1,1,2,2,2,
+                1,1,1,2,2,2), nrow=3, ncol=6, byrow=T))
+plot(fire.rob$theta[,1], fire.rob$global.pert*mean(fire.rob$Y.init)*100, type='l',
+     ylab="Proportion of predicted 1s (%)",
+     xlab=expression(theta),
+     col="cornflowerblue", lwd=2.5,
+     cex.lab=1.5)
+grid()
+abline(h=mean(fire.rob$Y.init)*100, lty=2, lwd=2, col="gray25")
+legend("bottomright",
+       col=c("cornflowerblue", "gray25"),
+       lty=c(1,2),
+       lwd=c(2.5,2),
+       legend=c("Perturbed Airflow", "Initial Data"),
+       cex=1,
+       bg="white")
+
+plot(fire.rob$theta[,1], rowMeans(pred.change)*100, type="l",
+     ylab="Proportion of prediction shift (%)",
+     xlab=expression(theta),
+     col=2,
+     lwd=2.5,
+     ylim=c(0,0.35),
+     cex.lab=1.5)
+grid()
+abline(h=0,lty=2, lwd=2, col="gray25")
+
+layout(matrix(c(1,1,2,2,2,2,
+                1,1,2,2,2,2,
+                1,1,2,2,2,2), nrow=3, ncol=6, byrow=T))
+
+a=barplot(height=c(baseline.shap$Shap),
+        names=rownames(baseline.shap$Shap),
+        col=coul,
+        ylim=c(0,0.3),
+        ylab="Initial Target Shapley Effects",
+        cex.lab=1.5,
+        cex.names=1,
+        xaxt="n",
+        border=F)
+ text(a, par("usr")[3], labels = rownames(baseline.shap$Shap), srt = 60, adj = c(1.1,1.1), xpd = TRUE, cex=1) 
+
+
+plot(res.shap[,1], res.shap[,2], type='l', col=coul[1], ylim=c(0,0.3), lwd=2,
+     ylab="Perturbed Target Shapley Effects",
+     xlab=expression(theta),
+     cex.lab=1.5)
+grid()
+lines(res.shap[,1], res.shap[,3], col=coul[2], lwd=2)
+lines(res.shap[,1], res.shap[,4], col=coul[3], lwd=2)
+lines(res.shap[,1], res.shap[,5], col=coul[4], lwd=2)
+lines(res.shap[,1], res.shap[,6], col=coul[5], lwd=2)
+lines(res.shap[,1], res.shap[,7], col=coul[6], lwd=2)
+```
+
+```{r}
+y.pert=fire.rob$pred.pert[,-1]
+
+x.pert=fire.rob$dist.pert[,-1]
+x.init=fire.rob$dist.pert[,-1]
+
+set.seed(12345)
+n_sub=nrow(x.pert)
+subs_pert=sample(1:nrow(x.pert),n_sub)
+
+X.pert=matrix(NA, nrow=n_sub, ncol=ncol(x.pert))
+X.init=matrix(NA, nrow=n_sub, ncol=ncol(x.init))
+isPert=matrix(NA, nrow=n_sub, ncol=ncol(x.init))
+
+for(i in 1:nrow(x.pert)){
+  X.pert[i,]=fire.rob$pert.data[[i]][,4] 
+  X.init[i,]=fire.nn[,4]
+  isPert[i,]=y.pert[i,]==fire.rob$Y.init
+}
+
+X.pert=as.vector(X.pert)
+X.init=as.vector(X.init)
+isPert=as.vector(isPert)
+
+X.init.Paspert=X.init[isPert]
+X.init.pert=X.init[!isPert]
+X.pert.Paspert=X.pert[isPert]
+X.pert.pert=X.pert[!isPert]
+
+X.Paspert=data.frame("X.init"=X.init.Paspert, "X.pert"=X.pert.Paspert)
+X.Pert<-data.frame("X.init"=X.init.pert, "X.pert"=X.pert.pert)
+
+X.Paspert = X.Paspert[!duplicated.data.frame(X.Paspert),]
+X.Pert = X.Pert[!duplicated.data.frame(X.Pert),]
+```
+
+```{r locRob, fig.width=8, fig.height=4.5}
+par(mar=c(4,4.5,0.5,1))
+plot(X.Paspert$X.init, X.Paspert$X.pert, col=rgb(0.392,0.585,0.929,0.3), pch=19,
+     xlab="Initial Airflow datapoints",
+     ylab="Perturbed Airflow datapoints",cex.lab=1.4)
+grid()
+points(X.Pert$X.init, X.Pert$X.pert, col=rgb(.796,.255,.329,0.3), pch=19, cex=1)
+points(X.Paspert$X.init, X.Paspert$X.pert, col=rgb(0.392,0.585,0.929,0.018), pch=19, cex=1)
+abline(a=0,b=1, lwd=1, lty=1, col=1)
+legend("topleft",
+       fill=c(rgb(0.392,0.585,0.929,1/3), rgb(.796,.255,.329,1/3)),
+       legend=c("Unchanged prediction","Changed Prediction"),
+       cex=1,
+       bg="white")
+```

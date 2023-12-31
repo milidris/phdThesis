@@ -1,0 +1,80 @@
+---
+title: "Section 3.4.3 - Optical Filter"
+author: "Marouane IL IDRISSI"
+date: "03/12/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.path="figures/")
+
+#Packages import
+library(RColorBrewer)
+```
+
+```{r}
+#####################
+# Setup
+
+# Loading allocation results
+load(file="results/allocations_OF.RData")
+
+# Plotting colors
+coul <- brewer.pal(8, "Dark2") 
+coul[3]="cornflowerblue"
+
+names = c(expression(I[1]),
+          expression(I[2]),
+          expression(I[3]),
+          expression(I[4]),
+          expression(I[5]),
+          expression(I[6]),
+          expression(I[7]),
+          expression(I[8]),
+          expression(I[9]),
+          expression(I[10]),
+          expression(I[11]),
+          expression(I[12]),
+          expression(I[13]))
+```
+
+```{r OF_allocs, fig.width=12, fig.height=6}
+error.bar <- function(x, y, upper, lower=upper, length=0.1,...){
+  arrows(x,upper, x, lower, angle=90, code=3, length=length, ...)
+}
+
+par(mar=c(5,4.5,1,1),
+    mfrow=c(1,2))
+coul <- brewer.pal(8, "Dark2") 
+
+a=barplot(height=c(Shap.OF$Shap),
+        names=names,
+        col=coul,
+        ylim=c(0,.3),
+        ylab="Shapley effects",
+        cex.lab=1,
+        cex.names=1,
+        xaxt="n",
+        border=F)
+error.bar(a, Shap.OF$Shap, upper=Shap.OF$conf_int$`max. c.i.`,
+          lower=Shap.OF$conf_int$`min. c.i.`)
+text(a, par("usr")[3], labels = names,  adj = c(.4,1.1), xpd = TRUE, cex=1)
+perc<-paste(round(Shap.OF$Shap*100, 1), "%", sep="")
+text(a, par("usr")[3]+.4, y=(Shap.OF$conf_int$`max. c.i.`+0.015), labels = perc, xpd = TRUE, cex=0.9)
+
+b=barplot(height=c(PME.OF$PME),
+        names=names,
+        col=coul,
+        ylim=c(0,.3),
+        ylab="PME",
+        cex.lab=1,
+        cex.names=1,
+        xaxt="n",
+        border=F)
+error.bar(b, PME.OF$PME, upper=PME.OF$conf_int$`max. c.i.`,
+          lower=PME.OF$conf_int$`min. c.i.`)
+text(b, par("usr")[3], labels = names, adj = c(0.4,1.1), xpd = TRUE, cex=1)
+perc<-paste(round(PME.OF$PME*100, 1), "%", sep="")
+text(b, par("usr")[3]+.4, y=(PME.OF$conf_int$`max. c.i.`+0.015), labels = perc, xpd = TRUE, cex=0.9)
+```

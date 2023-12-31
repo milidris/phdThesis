@@ -1,0 +1,132 @@
+---
+title: "Section 3.4.2 - River Flood"
+author: "Marouane IL IDRISSI"
+date: "03/12/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.path="figures/")
+
+#Packages import
+library(RColorBrewer)
+library(lattice)
+library(latticeExtra)
+```
+
+```{r}
+#####################
+# Setup
+
+# Loading allocation results
+load(file="results/allocations_RWL.RData")
+
+error.bar <- function(x, y, upper, lower=upper, length=0.1,...){
+  arrows(x,upper, x, lower, angle=90, code=3, length=length, ...)
+}
+
+# Plotting colors
+coul <- brewer.pal(6, "Dark2") 
+coul[3]="cornflowerblue"
+
+RWL.names=c("Q","Ks","Zv","Zm","L","B")
+
+meanShap.RWL=colMeans(Shaps.RWL)
+meanShap.flood=colMeans(Shaps.flood)
+meanPME.RWL=colMeans(PMEs.RWL)
+meanPME.flood=colMeans(PMEs.flood)
+
+quantilesShap.RWL = apply(Shaps.RWL, 2, function(x) quantile(x, probs=c(0.95,0.05)))
+quantilesShap.flood = apply(Shaps.flood, 2, function(x) quantile(x, probs=c(0.95,0.05)))
+quantilesPME.RWL = apply(PMEs.RWL, 2, function(x) quantile(x, probs=c(0.95,0.05)))
+quantilesPME.flood = apply(PMEs.flood, 2, function(x) quantile(x, probs=c(0.95,0.05)))
+
+```
+
+# River Water Level Model
+
+```{r RWL_allocs,fig.width=10, fig.height=5.5}
+par(mar=c(5,4.5,1,1),
+    mfrow=c(1,2))
+
+
+a=barplot(height=c(meanShap.RWL)+0.005,
+        names=RWL.names,
+        col=coul,
+        ylim=c(0,0.6),
+        ylab="Shapley Effects",
+        cex.names=1,
+        cex.lab=1,
+        xaxt="n",
+        border=F)
+ text(a, par("usr")[3], labels = RWL.names , srt = 60, adj = c(1.1,1.1), xpd = TRUE, cex=1) 
+ perc<-paste(round(meanShap.RWL*100, 2), "%", sep="")
+ perc[5]="<0.01%"
+ text(a, par("usr")[3]+.5, y=(quantilesShap.RWL[1,]+0.03), labels = perc, xpd = TRUE, cex=0.9)
+error.bar(a, meanShap.RWL, upper=quantilesShap.RWL[1,]+0.005,
+          lower=quantilesShap.RWL[2,]+0.005)
+ 
+ 
+a=barplot(height=c(meanPME.RWL)+0.005,
+        names=RWL.names,
+        col=coul,
+        ylim=c(0,0.6),
+        ylab="PME",
+        cex.names=1,
+        cex.lab=1,
+        xaxt="n",
+        border=F)
+ text(a, par("usr")[3], labels = RWL.names , srt = 60, adj = c(1.1,1.1), xpd = TRUE, cex=1) 
+ perc<-paste(round(meanPME.RWL*100, 2), "%", sep="")
+perc[5]="<0.01%"
+ text(a, par("usr")[3]+.5, y=(quantilesPME.RWL[1,]+0.03), labels = perc, xpd = TRUE, cex=0.9)
+error.bar(a, meanPME.RWL, upper=quantilesPME.RWL[1,]+0.005,
+          lower=quantilesPME.RWL[2,])
+```
+
+# Flood Model
+
+```{r flood_allocs,fig.width=10, fig.height=5.5}
+par(mar=c(5,4.5,1,1),
+    mfrow=c(1,2))
+
+
+a=barplot(height=c(meanShap.flood)+0.005,
+        names=RWL.names,
+        col=coul,
+        ylim=c(0,0.5),
+        ylab="Shapley Effects",
+        cex.names=1,
+        cex.lab=1,
+        xaxt="n",
+        border=F)
+ text(a, par("usr")[3], labels = RWL.names , srt = 60, adj = c(1.1,1.1), xpd = TRUE, cex=1) 
+ perc<-paste(round(meanShap.flood*100, 2), "%", sep="")
+ text(a, par("usr")[3]+.5, y=(quantilesShap.flood[1,]+0.03), labels = perc, xpd = TRUE, cex=0.9)
+ error.bar(a, meanShap.flood, upper=quantilesShap.flood[1,]+0.005,
+          lower=quantilesShap.flood[2,]+0.005)
+ 
+ 
+a=barplot(height=c(meanPME.flood)+0.005,
+        names=RWL.names,
+        col=coul,
+        ylim=c(0,0.5),
+        ylab="PME",
+        cex.names=1,
+        cex.lab=1,
+        xaxt="n",
+        border=F)
+ text(a, par("usr")[3], labels = RWL.names , srt = 60, adj = c(1.1,1.1), xpd = TRUE, cex=1) 
+ perc<-paste(round(meanPME.flood*100, 2), "%", sep="")
+#perc[5]="<0.01%"
+ text(a, par("usr")[3]+.5, y=(quantilesPME.flood[1,]+0.03), labels = perc, xpd = TRUE, cex=0.9)
+ error.bar(a, meanPME.flood, upper=quantilesPME.flood[1,]+0.005,
+          lower=quantilesPME.flood[2,]+0.005)
+```
+
+
+
+
+
+

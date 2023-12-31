@@ -1,0 +1,140 @@
+---
+title: "Global statistics - Acoustic Fire Extinguisher"
+author: "Marouane IL IDRISSI"
+date: "03/12/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.path="figures/")
+
+#Packages import
+library(RColorBrewer)
+library(lattice)
+library(latticeExtra)
+library(sensitivity)
+```
+
+
+```{r}
+load(file="AFE_data.RData")
+sensitivity::correlRatio()
+```
+
+
+```{r scatAFE, fig.width=10, fig.height=7}
+
+col0=rgb(0.8745098,0.3254902,0.4196078,0.1)
+col1=rgb(0.3921569,0.5843137,0.9294118,0.2)
+colY=fire$Y
+colY[colY==0]=col0
+colY[colY==1]=col1
+Y.panel<-function(x,y,...){
+  points(x,y, pch=19, col=colY)
+  grid(rgb(0,0,0,0.2))
+}
+
+panel.hist <- function(x, ...){
+  if(length(unique(x))>=10){
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(usr[1:2], 0, 1.1) )
+    h <- hist(x, plot = FALSE, breaks=20)
+    breaks <- h$breaks; nB <- length(breaks)
+    y <- h$counts; y <- y/max(y)
+    rect(breaks[-nB], 0, breaks[-1], y, col = rgb(0,124/255,124/255,0.8))
+    #lines(density(x),col=1, lwd=2)
+  }else{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0,1,-0.079,1.079))
+    
+    # Offset is estimated distance between edge of plot area and beginning of actual plot
+    x.offset = 0.03
+    xrng =  1 - 2*x.offset
+    x.width = xrng/5  
+    
+    # x-axis labels
+    text(seq(x.offset + 0.5*x.width, 1 - x.offset - 0.5*x.width,
+         length.out=5), 0,
+     sort(unique(x)),
+     xpd=TRUE,adj=c(.5,.5), cex=.9)
+
+    # y-axis labels
+    text(0.95, (sort(unique(x))-min(sort(unique(x))))/(max(sort(unique(x)))-min(sort(unique(x)))),
+     sort(unique(x)),
+     xpd=TRUE, adj=c(0.5, 0.5), 
+     srt=90,  # rotates text to be parallel to axis
+     cex=.9)
+  }
+}
+
+panel.cor <- function(x, y, digits = 2, prefix = "",...){
+    if(length(unique(x))>=10){
+    cols=colorRampPalette(c(brewer.pal(n=9,"Blues")[8], "darkgrey", brewer.pal(n=9,"YlOrRd")[8]))(200)
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- cor(x, y, method="spearman")
+    col=cols[floor(r*100)+100]
+    txt <- format(c(r, 0.123456789), digits = digits)[1]
+    txt <- paste0(prefix, txt)
+    text(0.5, 0.5, txt, cex = 3, col=col)
+    }else{
+      par(new=TRUE)
+      boxplot(y~x, ...)
+    }
+}
+
+pairs(fire[,c(3,6,4,5)], 
+      lower.panel = panel.cor,
+      upper.panel = Y.panel,
+      diag.panel=panel.hist,
+      cex.labels=1.5,
+      xaxt='n', 
+      yaxt='n',
+      labels="")
+
+
+x.coords = par('usr')[1:2]
+y.coords = par('usr')[3:4]
+
+# Offset is estimated distance between edge of plot area and beginning of actual plot
+x.offset = 0.02 * (x.coords[2] - x.coords[1])  
+xrng =  (x.coords[2] - x.coords[1]) - 2*x.offset
+x.width = xrng/4  
+
+y.offset = 0.03 * (y.coords[2] - y.coords[1])
+yrng =  (y.coords[2] - y.coords[1]) - 2*y.offset
+y.width = yrng/4  
+
+# seq function below calculates the location of the midpoint of each panel
+
+# x-axis labels
+text(seq(x.coords[1] + x.offset + 0.5*x.width, x.coords[2] - x.offset - 0.5*x.width,
+         length.out=4), 0,
+     names(fire[c(3,6,4,5)]),
+     xpd=TRUE,adj=c(.5,.5), cex=1.2)
+
+# y-axis labels
+text(0, seq(y.coords[1] + y.offset + 0.5*y.width, y.coords[2] - y.offset - 0.5*y.width, 
+     length.out=4),
+     rev(names(fire[c(3,6,4,5)])),
+     xpd=TRUE, adj=c(0.5, 0.5), 
+     srt=90,  # rotates text to be parallel to axis
+     cex=1.2)
+```
+
+```{r}
+#Correlation ratio between qualitative and quantitative inputs
+correlRatio(fire$Decibel, fire$TankSize)
+correlRatio(fire$Distance, fire$TankSize)
+correlRatio(fire$Airflow, fire$TankSize)
+correlRatio(fire$Frequency, fire$TankSize)
+
+
+correlRatio(fire$Decibel, fire$Fuel)
+correlRatio(fire$Distance, fire$Fuel)
+correlRatio(fire$Airflow, fire$Fuel)
+correlRatio(fire$Frequency, fire$Fuel)
+```
+
+

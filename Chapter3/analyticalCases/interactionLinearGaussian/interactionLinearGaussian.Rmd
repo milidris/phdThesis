@@ -1,0 +1,108 @@
+---
+title: "Section 3.3.4 - Linear model with interaction"
+author: "Marouane IL IDRISSI"
+date: "03/12/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.path="figures/")
+
+#Packages import
+library(RColorBrewer)
+library(lattice)
+library(latticeExtra)
+```
+
+# Computing the analytical allocations
+```{r}
+# Model: G(X) = X1 + alpha*X2 + (1-a)X1X2
+
+###############################################################################
+# Function to compute the analytical Shapley and PME Values
+
+computeAllocs<-function(alpha, rho){
+  
+  #Output variance
+  vy=2+(1-alpha)^2+2*(1-alpha)*rho + rho^2
+  
+  #(Normalized) Shapley effects 
+  sh1=(3+rho^2*(1-alpha)^2+2*rho*(1-alpha))/(2*vy)
+  sh2=(1+2*rho^2+(2-rho^2)*(1-alpha)^2 +2*rho*(1-alpha))/(2*vy)
+  
+  
+  #(Normalized) PME
+  denom=3+(1-alpha)^2
+  pme1=2/denom
+  pme2=((1-alpha)^2 +1)/denom
+  
+  res=cbind(sh1, sh2, pme1, pme2)
+  return(res)
+}
+```
+
+```{r}
+###############################################################################
+# Sequence of correlation values
+rhos<-seq(-0.999,0.999,0.001)
+
+###############################################################################
+# Sequence of beta values
+alphas<-seq(0,1,0.001)
+
+###############################################################################
+# Grid of crossed rho/beta values to compute
+grid.alpharho<-expand.grid(alphas, rhos)
+
+resAllocs=cbind(grid.alpharho, computeAllocs(grid.alpharho[,1], grid.alpharho[,2]))
+colnames(resAllocs)[c(1,2)]=c("alpha", "rho")
+```
+
+```{r heatShap_interactionLinear, fig.height=4.5, fig.width=5}
+par(mfrow=c(2,1),
+    cex=2)
+levelplot(sh1~alpha*rho,
+          data=resAllocs,
+          col.regions=hcl.colors(10000), 
+          cuts=10000,
+          main=expression(Sh[1]),
+          ylab=expression(rho),
+          xlab=expression(alpha),
+          at=seq(0.25,.75,0.0001),
+          cex=2)
+
+levelplot(sh2~alpha*rho,
+          data=resAllocs,
+          col.regions=hcl.colors(10000), 
+          cuts=10000,
+          main=expression(Sh[2]),
+          ylab=expression(rho),
+          xlab=expression(alpha),
+          at=seq(0.25,.75,0.0001),
+          cex=2)
+```
+
+```{r heatPME_interactionLinear, fig.height=4.5, fig.width=5}
+par(mfrow=c(2,1),
+    cex=2)
+levelplot(pme1~alpha*rho,
+          data=resAllocs,
+          col.regions=hcl.colors(10000), 
+          cuts=10000,
+          main=expression(PME[1]),
+          ylab=expression(rho),
+          xlab=expression(alpha),
+          at=seq(0.25,.75,0.0001),
+          cex=2)
+
+levelplot(pme2~alpha*rho,
+          data=resAllocs,
+          col.regions=hcl.colors(10000), 
+          cuts=10000,
+          main=expression(PME[2]),
+          ylab=expression(rho),
+          xlab=expression(alpha),
+          at=seq(0.25,.75,0.0001),
+          cex=2)
+```

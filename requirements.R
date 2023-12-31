@@ -1,0 +1,18 @@
+install.packages("readxl")
+install.packages("RColorBrewer")
+install.packages("lattice")
+install.packages("latticeExtra")
+install.packages("sensitivity")
+install.packages("keras")
+install.packages("triangle")
+install.packages("VineCopula")
+install.packages("evd")
+install.packages("parallel")
+install.packages("doParallel")
+install.packages("foreach")
+install.packages("gtools")
+install.packages("DiceKriging")
+install.packages("CVXR")
+install.packages("Chapter5/package/interpretability_0.1.0.tar.gz", 
+                 repos=NULL, 
+                 type='source')
